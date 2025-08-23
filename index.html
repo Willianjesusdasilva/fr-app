@@ -1,55 +1,285 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-  <meta charset="UTF-8">
-  <title>GPS Filtro</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Trip GPS</title>
+
+  <!-- Leaflet (minimapa) -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
+
+  <style>
+    :root {
+      --accent: #e02424;
+      --bg: #0f1115;
+      --fg: #e7e9ee;
+      --muted: #9aa0a6;
+    }
+    html, body {
+      height: 100%;
+      margin: 0;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+    }
+
+    /* container central */
+    .center {
+      min-height: 100%;
+      display: grid;
+      place-items: center;
+      padding: 2rem;
+      box-sizing: border-box;
+    }
+
+    /* botão grande */
+    #startBtn {
+      appearance: none;
+      border: 0;
+      background: linear-gradient(135deg, var(--accent), #ff5a5f);
+      color: white;
+      font-weight: 800;
+      letter-spacing: .5px;
+      font-size: clamp(1.1rem, 3vw, 1.6rem);
+      padding: 1.2rem 2.2rem;
+      border-radius: 16px;
+      cursor: pointer;
+      box-shadow: 0 10px 30px rgba(224,36,36,.35);
+      transition: transform .06s ease, filter .2s ease, opacity .2s ease;
+    }
+    #startBtn:disabled {
+      opacity: .65;
+      cursor: not-allowed;
+      filter: grayscale(.2);
+    }
+    #startBtn:active:not(:disabled) { transform: translateY(1px) scale(0.995); }
+
+    /* painel inferior com minimapa e coords */
+    .panel {
+      width: 100%;
+      max-width: 520px;
+      margin-top: 1.5rem;
+      background: #161922;
+      border: 1px solid #22283a;
+      border-radius: 16px;
+      overflow: hidden;
+      display: none; /* aparece quando GPS ok */
+    }
+    #map {
+      width: 100%;
+      height: 240px; /* minimapa */
+    }
+    .info {
+      padding: .9rem 1rem 1.1rem;
+      font-size: .95rem;
+      color: var(--muted);
+      display: grid;
+      row-gap: .25rem;
+      border-top: 1px solid #22283a;
+    }
+    .info strong { color: var(--fg); }
+
+    /* popup (modal) */
+    .modal-backdrop {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.6);
+      display: none; /* ligado via JS */
+      align-items: center; justify-content: center;
+      padding: 1rem;
+      z-index: 9999;
+    }
+    .modal {
+      width: 100%;
+      max-width: 520px;
+      background: #161922;
+      border: 1px solid #22283a;
+      border-radius: 14px;
+      padding: 1.1rem 1.2rem;
+      box-shadow: 0 20px 60px rgba(0,0,0,.45);
+    }
+    .modal h3 { margin: .2rem 0 .5rem; }
+    .modal p { color: var(--muted); line-height: 1.45; }
+    .modal .actions {
+      display: flex; gap: .6rem; justify-content: flex-end; margin-top: 1rem;
+    }
+    .btn {
+      appearance: none; border: 0; border-radius: 12px; padding: .7rem 1rem; font-weight: 700; cursor: pointer;
+    }
+    .btn.secondary { background: #202536; color: var(--fg); }
+    .btn.primary { background: var(--accent); color: #fff; }
+  </style>
 </head>
 <body>
-  <button onclick="getLocation()">Pegar Localização</button>
-  <p id="saida"></p>
+  <div class="center">
+    <div style="display:grid; place-items:center; text-align:center;">
+      <button id="startBtn">Iniciar TRIP</button>
+
+      <div class="panel" id="panel">
+        <div id="map"></div>
+        <div class="info" id="info">
+          <div>Lat: <strong id="lat">—</strong></div>
+          <div>Lon: <strong id="lon">—</strong></div>
+          <div>Precisão: <strong id="acc">—</strong></div>
+          <div>Fonte: <strong id="src">Tentando GPS…</strong></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal -->
+  <div class="modal-backdrop" id="modalWrap" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal">
+      <h3 id="modalTitle">Ative o GPS em um dispositivo móvel</h3>
+      <p>
+        Não recebemos uma posição com precisão típica de <strong>GPS</strong>.
+        <br/>Use um <strong>smartphone</strong> (ou ative o GPS) e tente novamente.
+      </p>
+      <div class="actions">
+        <button class="btn secondary" id="closeModal">Fechar</button>
+        <button class="btn primary" id="retryModal">Tentar novamente</button>
+      </div>
+    </div>
+  </div>
 
   <script>
-    function getLocation() {
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(mostrarPosicao, mostrarErro, {
-          enableHighAccuracy: true, // força tentar GPS
-          timeout: 10000,           // tempo máximo de espera
-          maximumAge: 0
-        });
+    // ====== CONFIGURAÇÕES ======
+    const ACCURACY_LIMIT_METERS = 50; // limite para considerar "GPS"
+    const GEO_OPTIONS = {
+      enableHighAccuracy: true, // força uso de GPS quando disponível
+      timeout: 15000,
+      maximumAge: 0
+    };
+
+    // ====== ELEMENTOS ======
+    const startBtn = document.getElementById('startBtn');
+    const panel   = document.getElementById('panel');
+    const latEl   = document.getElementById('lat');
+    const lonEl   = document.getElementById('lon');
+    const accEl   = document.getElementById('acc');
+    const srcEl   = document.getElementById('src');
+
+    const modalWrap  = document.getElementById('modalWrap');
+    const closeModal = document.getElementById('closeModal');
+    const retryModal = document.getElementById('retryModal');
+
+    // ====== MAPA (Leaflet) ======
+    let map, marker;
+    function ensureMap(lat, lon) {
+      if (!map) {
+        map = L.map('map', { zoomControl: true, attributionControl: true })
+              .setView([lat, lon], 16);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          attribution: '&copy; OpenStreetMap'
+        }).addTo(map);
+        marker = L.marker([lat, lon]).addTo(map);
       } else {
-        document.getElementById("saida").innerHTML = "Geolocalização não suportada.";
+        marker.setLatLng([lat, lon]);
+        map.setView([lat, lon]);
       }
     }
 
-    function mostrarPosicao(position) {
-      const lat = position.coords.latitude;
-      const lon = position.coords.longitude;
-      const acc = position.coords.accuracy; // em metros
+    // ====== GEO ======
+    let watchId = null;
 
-      if (acc <= 50) { // aqui você decide o limite aceitável
-        document.getElementById("saida").innerHTML =
-          "Latitude: " + lat + "<br>Longitude: " + lon + "<br>Precisão: " + acc + "m";
-      } else {
-        document.getElementById("saida").innerHTML =
-          "Ignorado: localização não veio de GPS (precisão " + acc + "m)";
+    function startTrip() {
+      if (!('geolocation' in navigator)) {
+        alert('Geolocalização não suportada pelo seu navegador.');
+        return;
       }
+      startBtn.disabled = true;
+      startBtn.textContent = 'Buscando sinal de GPS...';
+
+      // ativa o painel (mapa aparecerá quando a 1ª posição válida chegar)
+      panel.style.display = 'block';
+
+      // rastreamento contínuo
+      if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+      watchId = navigator.geolocation.watchPosition(onPos, onErr, GEO_OPTIONS);
     }
 
-    function mostrarErro(error) {
-      switch(error.code) {
+    function isGpsQuality(position) {
+      // Não existe "fonte" explícita; usamos a precisão como proxy
+      // Em geral, GPS fornece <= 50 m (muitas vezes < 10 m).
+      return position.coords.accuracy <= ACCURACY_LIMIT_METERS;
+    }
+
+    function onPos(position) {
+      const { latitude, longitude, accuracy } = position.coords;
+      const gpsOk = isGpsQuality(position);
+
+      if (!gpsOk) {
+        // não considerar; mostra modal e cancela watch pra não spammar
+        showModal();
+        stopWatch();
+        startBtn.disabled = false;
+        startBtn.textContent = 'Iniciar TRIP';
+        srcEl.textContent = 'Impreciso (rede/IP)';
+        return;
+      }
+
+      // OK: atualizar UI + mapa
+      latEl.textContent = latitude.toFixed(6);
+      lonEl.textContent = longitude.toFixed(6);
+      accEl.textContent = `${Math.round(accuracy)} m`;
+      srcEl.textContent = 'GPS (alta precisão)';
+
+      ensureMap(latitude, longitude);
+
+      // Após primeira posição boa, manter atualizando
+      startBtn.textContent = 'TRIP em andamento';
+    }
+
+    function onErr(error) {
+      startBtn.disabled = false;
+      startBtn.textContent = 'Iniciar TRIP';
+      switch (error.code) {
         case error.PERMISSION_DENIED:
-          alert("Permissão negada pelo usuário.");
+          alert('Permissão negada. Habilite o acesso à localização.');
           break;
         case error.POSITION_UNAVAILABLE:
-          alert("Informações de localização indisponíveis.");
+          alert('Localização indisponível no momento.');
           break;
         case error.TIMEOUT:
-          alert("Tempo de resposta esgotado.");
+          alert('Tempo esgotado ao buscar localização.');
           break;
         default:
-          alert("Erro desconhecido.");
+          alert('Erro desconhecido ao obter localização.');
       }
     }
+
+    function stopWatch() {
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+        watchId = null;
+      }
+    }
+
+    // ====== MODAL ======
+    function showModal() { modalWrap.style.display = 'flex'; }
+    function hideModal() { modalWrap.style.display = 'none'; }
+
+    closeModal.addEventListener('click', hideModal);
+    retryModal.addEventListener('click', () => {
+      hideModal();
+      startTrip();
+    });
+
+    // ====== EVENTOS ======
+    startBtn.addEventListener('click', startTrip);
+
+    // opcional: ao sair da página, limpar watcher
+    window.addEventListener('beforeunload', stopWatch);
   </script>
 </body>
 </html>
