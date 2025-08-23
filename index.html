@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <title>GPS Filtro</title>
+</head>
+<body>
+  <button onclick="getLocation()">Pegar Localização</button>
+  <p id="saida"></p>
+
+  <script>
+    function getLocation() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(mostrarPosicao, mostrarErro, {
+          enableHighAccuracy: true, // força tentar GPS
+          timeout: 10000,           // tempo máximo de espera
+          maximumAge: 0
+        });
+      } else {
+        document.getElementById("saida").innerHTML = "Geolocalização não suportada.";
+      }
+    }
+
+    function mostrarPosicao(position) {
+      const lat = position.coords.latitude;
+      const lon = position.coords.longitude;
+      const acc = position.coords.accuracy; // em metros
+
+      if (acc <= 50) { // aqui você decide o limite aceitável
+        document.getElementById("saida").innerHTML =
+          "Latitude: " + lat + "<br>Longitude: " + lon + "<br>Precisão: " + acc + "m";
+      } else {
+        document.getElementById("saida").innerHTML =
+          "Ignorado: localização não veio de GPS (precisão " + acc + "m)";
+      }
+    }
+
+    function mostrarErro(error) {
+      switch(error.code) {
+        case error.PERMISSION_DENIED:
+          alert("Permissão negada pelo usuário.");
+          break;
+        case error.POSITION_UNAVAILABLE:
+          alert("Informações de localização indisponíveis.");
+          break;
+        case error.TIMEOUT:
+          alert("Tempo de resposta esgotado.");
+          break;
+        default:
+          alert("Erro desconhecido.");
+      }
+    }
+  </script>
+</body>
+</html>
