@@ -1,4 +1,3 @@
-// src/main.js
 import { POLL_MS } from './config.js';
 import {
   onStartClick, bindModal, showPanel, hidePanel,
@@ -9,11 +8,24 @@ import { startGeolocation, stopGeolocation } from './geo.js';
 import { loadPeers } from './peers.js';
 
 let peersInterval = null;
+window.myNickname = null; // 🌍 variável global
 
-// estado inicial do botão ao abrir a página
 setStartIdle();
 
 function startTrip() {
+  // pega valor do input
+  const nicknameInput = document.getElementById("nicknameInput");
+  const nickname = nicknameInput.value.trim();
+
+  if (!nickname) {
+    alert("Digite seu apelido antes de iniciar!");
+    nicknameInput.focus();
+    return;
+  }
+
+  window.myNickname = nickname; // salva global
+  console.log("Meu apelido é:", window.myNickname);
+
   setStartBusy(true);
   showPanel();
 
@@ -24,7 +36,6 @@ function startTrip() {
       ensureMap(latitude, longitude);
       updateMyMarker(latitude, longitude, { pan: true });
 
-      // -> troca para logo
       setTripRunning();
 
       if (peersInterval) clearInterval(peersInterval);
@@ -34,14 +45,14 @@ function startTrip() {
 
     onImprecise: () => {
       stopGeolocation();
-      setStartIdle();              // volta texto
+      setStartIdle();
       updateInfo({ src: 'Impreciso (rede/IP)' });
       showModal();
       hidePanel();
     },
 
     onError: (error) => {
-      setStartIdle();              // volta texto
+      setStartIdle();
       alertMsgFromGeoError(error);
       hidePanel();
     },

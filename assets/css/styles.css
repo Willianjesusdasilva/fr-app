@@ -46,33 +46,6 @@ html, body {
 }
 .info strong { color: var(--fg); }
 
-/* Botão grande (flutuante) */
-#startBtn {
-  position: fixed;
-  top: 1rem;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 3;
-  appearance: none;
-  border: 0;
-  background: linear-gradient(135deg, var(--accent), #ff5a5f);
-  color: white;
-  font-weight: 800;
-  letter-spacing: .5px;
-  font-size: clamp(1.05rem, 3vw, 1.4rem);
-  padding: 1rem 2rem;
-  border-radius: 16px;
-  cursor: pointer;
-  box-shadow: 0 10px 30px rgba(224,36,36,.35);
-  transition: transform .06s ease, filter .2s ease, opacity .2s ease;
-}
-#startBtn:disabled {
-  opacity: .65;
-  cursor: not-allowed;
-  filter: grayscale(.2);
-}
-#startBtn:active:not(:disabled) { transform: translateX(-50%) translateY(1px) scale(0.995); }
-
 /* popup (modal) */
 .modal-backdrop {
   position: fixed; inset: 0;
@@ -123,17 +96,90 @@ html, body {
   box-shadow: none;
   border-radius: 0;
 }
-
-/* a imagem da logo dentro do botão rodando */
 #startBtn.is-running img {
   display: block;
   height: 70px;     /* ajuste se quiser maior/menor */
   width: auto;
 }
-
 /* acessibilidade/feedback */
 #startBtn:disabled.is-running {
   opacity: 0.9;
   filter: none;
   cursor: default;
+}
+
+/* ===== Redesigned start container (input + botão) ===== */
+#startContainer{
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 3;
+  width: min(720px, 92vw);
+}
+
+#startContainer .start-pill{
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  padding: .6rem;
+  border-radius: 16px;
+  background: rgba(22,25,34,.65); /* glassy card */
+  border: 1px solid #22283a;
+  box-shadow:
+    0 18px 60px rgba(0,0,0,.45),
+    inset 0 1px 0 rgba(255,255,255,.04);
+  backdrop-filter: blur(8px);
+}
+
+/* Override apenas quando dentro do startContainer */
+#startContainer #nicknameInput{
+  position: static;                /* remove o fixed anterior */
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 48px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 12px;
+  background: #161922;
+  color: #fff;
+  font-size: 1rem;
+  outline: none;
+  box-shadow: inset 0 0 0 1px #2a3145;
+}
+#startContainer #nicknameInput::placeholder{ color: #8b93a6; }
+
+/* botão combina com a altura do input e mantém seu gradiente/acento */
+#startContainer #startBtn{
+  position: static;                /* remove o fixed anterior */
+  height: 48px;
+  padding: 0 18px;
+  border-radius: 12px;
+  font-weight: 800;
+  letter-spacing: .3px;
+  font-size: 1rem;
+  appearance: none;
+  border: 0;
+  cursor: pointer;
+  background: linear-gradient(135deg, var(--accent), #ff5a5f);
+  color: #fff;
+  box-shadow: 0 10px 30px rgba(224,36,36,.35);
+  transition: transform .06s ease, filter .2s ease, opacity .2s ease;
+}
+#startContainer #startBtn:disabled{
+  opacity:.65; cursor:not-allowed; filter:grayscale(.2);
+}
+#startContainer #startBtn:active:not(:disabled){
+  transform: translateY(1px) scale(.995);
+}
+
+/* estado “is-running” continua funcionando sem afetar o resto */
+#startContainer #startBtn.is-running{
+  background: transparent;
+  padding: 0 6px;
+  box-shadow: none;
+  border-radius: 0;
+}
+#startContainer #startBtn.is-running img{
+  display:block; height:48px; width:auto;
 }

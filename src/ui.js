@@ -1,6 +1,8 @@
 // src/ui.js
 const els = {
   startBtn: document.getElementById('startBtn'),
+  startContainer: document.getElementById('startContainer'),
+  nicknameInput: document.getElementById('nicknameInput'),
   panel: document.getElementById('panel'),
   infoBox: document.getElementById('info'),
   lat: document.getElementById('lat'),
@@ -41,6 +43,7 @@ export function setStartIdle() {
 /** Estado “buscando GPS”: mantém texto e desabilita */
 export function setStartBusy(busy, textWhenBusy = 'Buscando sinal de GPS...') {
   if (busy) {
+    els.nicknameInput.disabled = true;
     els.startBtn.disabled = true;
     els.startBtn.classList.remove('is-running');
     els.startBtn.innerHTML = textWhenBusy;
@@ -54,8 +57,8 @@ export function setStartBusy(busy, textWhenBusy = 'Buscando sinal de GPS...') {
 export function setTripRunning() {
   els.startBtn.disabled = true;
   els.startBtn.classList.add('is-running');
-  els.startBtn.innerHTML = `<img src="./assets/images/fr.png" alt="Floripa Racing" />`;
-  els.startBtn.setAttribute('aria-label', 'TRIP em andamento');
+  //els.startBtn.innerHTML = `<img src="./assets/images/fr.png" alt="Floripa Racing" />`;
+  els.startContainer.style.display = 'none';
 }
 
 export function updateInfo({ lat, lon, acc, src }) {
