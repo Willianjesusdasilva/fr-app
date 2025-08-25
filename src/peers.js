@@ -1,21 +1,17 @@
 // src/peers.js
 import { INDEX_ROUTES } from './config.js';
 
-/** Converte objetos arbitrários do backend para { id, name, lat, lon } */
+/** Converte objetos arbitrários do backend para { name, lat, lon } */
 export function normalizePeer(p) {
-  const name = p.name ?? p.nome ?? p.user ?? p.username ?? p.dono ?? null;
-  const id   = p.id ?? name ?? null;
-
-  const lat = p.lat ?? p.latitude ?? p.Latitude ?? p.LAT ?? p.y ?? null;
-  const lon = p.lng ?? p.lon ?? p.longitude ?? p.Longitude ?? p.LNG ?? p.x ?? null;
-
-  if (id == null || name == null || lat == null || lon == null) return null;
+  const name = p.name;
+  const lat = p.lat;
+  const lon = p.lon;
 
   const latNum = typeof lat === 'string' ? parseFloat(lat) : lat;
   const lonNum = typeof lon === 'string' ? parseFloat(lon) : lon;
   if (!isFinite(latNum) || !isFinite(lonNum)) return null;
 
-  return { id: String(id), name: String(name), lat: latNum, lon: lonNum };
+  return { name: String(name), lat: latNum, lon: lonNum };
 }
 
 async function fetchIndexRoutes() {

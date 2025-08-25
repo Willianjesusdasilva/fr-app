@@ -50,7 +50,7 @@ async function fetchAndRenderPeers() {
     setPeers(peers);
   } catch (_) {
     // silencioso; pode logar no console se quiser
-    // console.debug('Peers fetch error:', _);
+    console.log('Peers fetch error:', _);
   }
 }
 
