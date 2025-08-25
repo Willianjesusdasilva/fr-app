@@ -42,9 +42,8 @@ export async function loadPeers() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: myName,
-          lat,
-          lon,
-          ts: Date.now()
+          lat: lat.toString(),
+          lon: lon.toString(),
         }),
       });
     }
