@@ -1,0 +1,114 @@
+:root {
+  --accent: #e02424;
+  --bg: #0f1115;
+  --fg: #e7e9ee;
+  --muted: #9aa0a6;
+}
+
+html, body {
+  height: 100%;
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+}
+
+/* MAPA FULLSCREEN */
+#panel {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  display: none; /* aparece quando GPS ok */
+  z-index: 1;
+}
+#map {
+  width: 100%;
+  height: 100%;
+}
+
+/* Info overlay */
+.info {
+  position: fixed;
+  left: 50%;
+  bottom: 1rem;
+  transform: translateX(-50%);
+  background: rgba(22,25,34,0.92);
+  border: 1px solid #22283a;
+  border-radius: 12px;
+  padding: .8rem 1.1rem;
+  font-size: .95rem;
+  color: var(--muted);
+  display: grid;
+  grid-auto-rows: min-content;
+  row-gap: .25rem;
+  z-index: 2;
+}
+.info strong { color: var(--fg); }
+
+/* Botão grande (flutuante) */
+#startBtn {
+  position: fixed;
+  top: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
+  appearance: none;
+  border: 0;
+  background: linear-gradient(135deg, var(--accent), #ff5a5f);
+  color: white;
+  font-weight: 800;
+  letter-spacing: .5px;
+  font-size: clamp(1.05rem, 3vw, 1.4rem);
+  padding: 1rem 2rem;
+  border-radius: 16px;
+  cursor: pointer;
+  box-shadow: 0 10px 30px rgba(224,36,36,.35);
+  transition: transform .06s ease, filter .2s ease, opacity .2s ease;
+}
+#startBtn:disabled {
+  opacity: .65;
+  cursor: not-allowed;
+  filter: grayscale(.2);
+}
+#startBtn:active:not(:disabled) { transform: translateX(-50%) translateY(1px) scale(0.995); }
+
+/* popup (modal) */
+.modal-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.6);
+  display: none; /* ligado via JS */
+  align-items: center; justify-content: center;
+  padding: 1rem;
+  z-index: 9999;
+}
+.modal {
+  width: 100%;
+  max-width: 520px;
+  background: #161922;
+  border: 1px solid #22283a;
+  border-radius: 14px;
+  padding: 1.1rem 1.2rem;
+  box-shadow: 0 20px 60px rgba(0,0,0,.45);
+}
+.modal h3 { margin: .2rem 0 .5rem; }
+.modal p { color: var(--muted); line-height: 1.45; }
+.modal .actions {
+  display: flex; gap: .6rem; justify-content: flex-end; margin-top: 1rem;
+}
+.btn {
+  appearance: none; border: 0; border-radius: 12px; padding: .7rem 1rem; font-weight: 700; cursor: pointer;
+}
+.btn.secondary { background: #202536; color: var(--fg); }
+.btn.primary { background: var(--accent); color: #fff; }
+
+/* Label fixa dos peers */
+.leaflet-tooltip.peer-label {
+  background: rgba(0,0,0,.65);
+  color: #fff;
+  border: 0;
+  border-radius: 8px;
+  padding: 2px 6px;
+  font-weight: 700;
+  box-shadow: 0 2px 10px rgba(0,0,0,.25);
+}
