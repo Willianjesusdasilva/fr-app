@@ -18,29 +18,44 @@ export function onStartClick(handler) {
 
 export function bindModal(onRetry) {
   els.closeModal.addEventListener('click', hideModal);
-  els.retryModal.addEventListener('click', () => {
-    hideModal();
-    onRetry();
-  });
+  els.retryModal.addEventListener('click', () => { hideModal(); onRetry(); });
 }
 
 export function showPanel() {
   els.panel.style.display = 'block';
-  els.infoBox.style.display = 'grid';
+  els.infoBox.style.display = 'hide';
 }
-
 export function hidePanel() {
   els.panel.style.display = 'none';
   els.infoBox.style.display = 'none';
 }
 
-export function setStartBusy(busy, textWhenBusy = 'Buscando sinal de GPS...', textIdle = 'Iniciar TRIP') {
-  els.startBtn.disabled = !!busy;
-  els.startBtn.textContent = busy ? textWhenBusy : textIdle;
+/** Estado inicial: texto no botão */
+export function setStartIdle() {
+  els.startBtn.classList.remove('is-running');
+  els.startBtn.disabled = false;
+  els.startBtn.innerHTML = 'Buscar';
+  els.startBtn.setAttribute('aria-label', 'Buscar');
 }
 
+/** Estado “buscando GPS”: mantém texto e desabilita */
+export function setStartBusy(busy, textWhenBusy = 'Buscando sinal de GPS...') {
+  if (busy) {
+    els.startBtn.disabled = true;
+    els.startBtn.classList.remove('is-running');
+    els.startBtn.innerHTML = textWhenBusy;
+    els.startBtn.setAttribute('aria-label', textWhenBusy);
+  } else {
+    setStartIdle();
+  }
+}
+
+/** Estado rodando: vira logo */
 export function setTripRunning() {
-  els.startBtn.textContent = 'TRIP em andamento';
+  els.startBtn.disabled = true;
+  els.startBtn.classList.add('is-running');
+  els.startBtn.innerHTML = `<img src="./assets/images/fr.png" alt="Floripa Racing" />`;
+  els.startBtn.setAttribute('aria-label', 'TRIP em andamento');
 }
 
 export function updateInfo({ lat, lon, acc, src }) {
@@ -50,10 +65,5 @@ export function updateInfo({ lat, lon, acc, src }) {
   if (typeof src === 'string') els.src.textContent = src;
 }
 
-export function showModal() {
-  els.modalWrap.style.display = 'flex';
-}
-
-export function hideModal() {
-  els.modalWrap.style.display = 'none';
-}
+export function showModal() { els.modalWrap.style.display = 'flex'; }
+export function hideModal() { els.modalWrap.style.display = 'none'; }

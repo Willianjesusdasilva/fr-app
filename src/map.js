@@ -1,17 +1,11 @@
-// map.js
 import { TILE } from './config.js';
 
 let map;
 let myMarker;
 let peersLayer;
-
-/** name -> marker */
 const peerMarkers = new Map();
 
-/**
- * Cria o mapa (se ainda não existir) e posiciona o marcador "Você".
- * Se já existir, só atualiza sua posição (com pan opcional).
- */
+// ========= MARCADOR DO USUÁRIO =========
 export function ensureMap(lat, lon) {
   if (!map) {
     map = L.map('map', { zoomControl: true, attributionControl: true })
@@ -19,14 +13,26 @@ export function ensureMap(lat, lon) {
 
     L.tileLayer(TILE.url, TILE.options).addTo(map);
 
-    myMarker = L.marker([lat, lon], { title: 'Você' })
-      .addTo(map)
-      .bindTooltip('Você', {
-        permanent: true,
-        direction: 'top',
-        className: 'peer-label',
-        offset: [0, -10],
-      });
+    // Circulozinho azul pro "Você"
+    myMarker = L.circleMarker([lat, lon], {
+      radius: 7,
+      fillColor: "#3399ff",
+      color: "#0066cc",
+      weight: 2,
+      opacity: 1,
+      fillOpacity: 0.9
+    }).addTo(map);
+
+    // Label fixa sem seta
+    L.tooltip({
+      permanent: true,
+      direction: "center",
+      className: "peer-label",
+      offset: [0, -15]
+    })
+      .setContent("Você")
+      .setLatLng([lat, lon])
+      .addTo(map);
 
     peersLayer = L.layerGroup().addTo(map);
   } else {
@@ -34,66 +40,63 @@ export function ensureMap(lat, lon) {
   }
 }
 
-/**
- * Atualiza a posição do seu marcador.
- * @param {number} lat
- * @param {number} lon
- * @param {{pan?: boolean}} opts
- */
 export function updateMyMarker(lat, lon, { pan = false } = {}) {
   if (!myMarker) return;
   myMarker.setLatLng([lat, lon]);
   if (pan && map) map.panTo([lat, lon]);
 }
 
-/**
- * Atualiza/adiciona marcador de peer pelo 'name' (sem usar id).
- * @param {{name: string, lat: number, lon: number}} peer
- */
+// ========= MARCADORES DE PEERS =========
 function upsertPeerMarker(peer) {
   if (!peersLayer) return;
-  const key = peer.name;
-  const existing = peerMarkers.get(key);
 
+  const existing = peerMarkers.get(peer.id);
   if (existing) {
-    existing.setLatLng([peer.lat, peer.lon]);
-    existing.setTooltipContent(peer.name);
+    existing.circle.setLatLng([peer.lat, peer.lon]);
+    existing.tooltip.setLatLng([peer.lat, peer.lon]);
+    existing.tooltip.setContent(peer.name);
     return;
   }
 
-  const m = L.marker([peer.lat, peer.lon], { title: peer.name });
-  m.addTo(peersLayer).bindTooltip(peer.name, {
+  // Ponto verde
+  const circle = L.circleMarker([peer.lat, peer.lon], {
+    radius: 6,
+    fillColor: "#00ff00",
+    color: "#009900",
+    weight: 2,
+    opacity: 1,
+    fillOpacity: 0.9
+  }).addTo(peersLayer);
+
+  // Nome fixo sem seta
+  const tooltip = L.tooltip({
     permanent: true,
-    direction: 'top',
-    className: 'peer-label',
-    offset: [0, -10],
-  });
-  peerMarkers.set(key, m);
+    direction: "center", // sem seta
+    className: "peer-label",
+    offset: [0, -15]
+  })
+    .setContent(peer.name)
+    .setLatLng([peer.lat, peer.lon])
+    .addTo(peersLayer);
+
+  peerMarkers.set(peer.id, { circle, tooltip });
 }
 
-/**
- * Remove marcadores cujos 'name' não vieram na última atualização.
- * @param {Set<string>} validNames
- */
-function prunePeerMarkers(validNames) {
-  for (const [name, marker] of peerMarkers.entries()) {
-    if (!validNames.has(name)) {
-      peersLayer.removeLayer(marker);
-      peerMarkers.delete(name);
+function prunePeerMarkers(validIds) {
+  for (const [id, marker] of peerMarkers.entries()) {
+    if (!validIds.has(id)) {
+      peersLayer.removeLayer(marker.circle);
+      peersLayer.removeLayer(marker.tooltip);
+      peerMarkers.delete(id);
     }
   }
 }
 
-/**
- * Recebe uma lista normalizada [{name, lat, lon}] e aplica no mapa.
- * Se houver nomes duplicados no array, o último prevalece nesse ciclo.
- * @param {Array<{name: string, lat: number, lon: number}>} peers
- */
 export function setPeers(peers) {
   const seen = new Set();
   for (const p of peers) {
     upsertPeerMarker(p);
-    seen.add(p.name);
+    seen.add(p.id);
   }
   prunePeerMarkers(seen);
 }
