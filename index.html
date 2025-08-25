@@ -121,6 +121,17 @@
     }
     .btn.secondary { background: #202536; color: var(--fg); }
     .btn.primary { background: var(--accent); color: #fff; }
+
+    /* Label fixa dos peers */
+    .leaflet-tooltip.peer-label {
+      background: rgba(0,0,0,.65);
+      color: #fff;
+      border: 0;
+      border-radius: 8px;
+      padding: 2px 6px;
+      font-weight: 700;
+      box-shadow: 0 2px 10px rgba(0,0,0,.25);
+    }
   </style>
 </head>
 <body>
@@ -165,6 +176,10 @@
       maximumAge: 0
     };
 
+    // Endpoints para pins de outros usuários
+    const INDEX_ROUTES = 'https://willianjesusdasilva.github.io/fr-app/index.routes';
+    const POLL_MS = 5000; // frequência para atualizar peers
+
     // ====== ELEMENTOS ======
     const startBtn = document.getElementById('startBtn');
     const panel    = document.getElementById('panel');
@@ -179,8 +194,9 @@
     const retryModal = document.getElementById('retryModal');
 
     // ====== MAPA (Leaflet) ======
-    let map, marker, polyline;
-    let routeCoords = [];
+    let map, myMarker;
+    let peersLayer = null;        // LayerGroup para peers
+    const peerMarkers = new Map(); // id/name -> marker
 
     function ensureMap(lat, lon) {
       if (!map) {
@@ -194,16 +210,20 @@
           maxZoom: 20
         }).addTo(map);
 
-        marker = L.marker([lat, lon]).addTo(map);
-        polyline = L.polyline([], { color: '#1cb954', weight: 4 }).addTo(map);
+        // Seu próprio marcador
+        myMarker = L.marker([lat, lon], { title: 'Você' }).addTo(map).bindTooltip('Você', {permanent:true, direction:'top', className:'peer-label', offset:[0,-10]});
+
+        // Camada dos outros usuários
+        peersLayer = L.layerGroup().addTo(map);
       } else {
-        marker.setLatLng([lat, lon]);
+        myMarker.setLatLng([lat, lon]);
         map.panTo([lat, lon]); // evita "pulos" bruscos
       }
     }
 
     // ====== GEO ======
     let watchId = null;
+    let peersInterval = null;
 
     function startTrip() {
       if (!('geolocation' in navigator)) {
@@ -220,6 +240,13 @@
       // limpa watcher antigo se existir
       if (watchId !== null) navigator.geolocation.clearWatch(watchId);
       watchId = navigator.geolocation.watchPosition(onPos, onErr, GEO_OPTIONS);
+
+      // inicia o polling dos peers (se já estiver rodando, reinicia)
+      if (peersInterval) clearInterval(peersInterval);
+      // Só começa a desenhar peers após o mapa existir (ou seja, depois da 1ª posição boa)
+      peersInterval = setInterval(fetchAndRenderPeers, POLL_MS);
+      // Faz uma primeira tentativa imediata também
+      fetchAndRenderPeers().catch(() => {});
     }
 
     function isGpsQuality(position) {
@@ -248,10 +275,6 @@
       srcEl.textContent = 'GPS (alta precisão)';
 
       ensureMap(latitude, longitude);
-
-      // rastro da rota
-      routeCoords.push([latitude, longitude]);
-      if (polyline) polyline.setLatLngs(routeCoords);
 
       // Após primeira posição boa, manter atualizando
       startBtn.textContent = 'TRIP em andamento';
@@ -282,6 +305,87 @@
       }
     }
 
+    // ====== PEERS (outros usuários) ======
+    async function fetchIndexRoutes() {
+      const res = await fetch(INDEX_ROUTES, { cache: 'no-store' });
+      if (!res.ok) throw new Error('Falha ao carregar index.routes');
+      const json = await res.json();
+      // esperamos algo como { data: "https://.../backend.json" }
+      const dataUrl = json?.data;
+      if (!dataUrl || typeof dataUrl !== 'string') {
+        throw new Error('Campo "data" ausente ou inválido em index.routes');
+      }
+      return dataUrl;
+    }
+
+    function normalizePeer(p) {
+      // tenta normalizar para { id, name, lat, lon }
+      const name = p.name ?? p.nome ?? p.user ?? p.username ?? p.dono ?? null;
+      const id   = p.id ?? name ?? null;
+      const lat  = p.lat ?? p.latitude ?? p.Latitude ?? p.LAT ?? p.y ?? null;
+
+      // algumas APIs usam lng/lon/long/x
+      const lon  = p.lng ?? p.lon ?? p.longitude ?? p.Longitude ?? p.LNG ?? p.x ?? null;
+
+      if (id == null || name == null || lat == null || lon == null) return null;
+
+      const latNum = typeof lat === 'string' ? parseFloat(lat) : lat;
+      const lonNum = typeof lon === 'string' ? parseFloat(lon) : lon;
+      if (!isFinite(latNum) || !isFinite(lonNum)) return null;
+
+      return { id: String(id), name: String(name), lat: latNum, lon: lonNum };
+    }
+
+    function upsertPeerMarker(peer) {
+      if (!peersLayer) return; // mapa ainda não criado
+      const existing = peerMarkers.get(peer.id);
+      if (existing) {
+        existing.setLatLng([peer.lat, peer.lon]);
+        existing.setTooltipContent(peer.name);
+        return;
+      }
+      const m = L.marker([peer.lat, peer.lon], { title: peer.name });
+      m.addTo(peersLayer).bindTooltip(peer.name, { permanent:true, direction:'top', className:'peer-label', offset:[0,-10] });
+      peerMarkers.set(peer.id, m);
+    }
+
+    function prunePeerMarkers(validIds) {
+      // remove marcadores que não apareceram nessa rodada
+      for (const [id, marker] of peerMarkers.entries()) {
+        if (!validIds.has(id)) {
+          peersLayer.removeLayer(marker);
+          peerMarkers.delete(id);
+        }
+      }
+    }
+
+    async function fetchAndRenderPeers() {
+      try {
+        const dataUrl = await fetchIndexRoutes();
+        const res = await fetch(dataUrl, { cache: 'no-store' });
+        if (!res.ok) throw new Error('Falha ao carregar data URL do backend');
+
+        const payload = await res.json();
+        // pode ser array direto ou objeto com campo results/users/data etc.
+        let list = Array.isArray(payload) ? payload
+                 : payload?.results ?? payload?.users ?? payload?.data ?? [];
+
+        if (!Array.isArray(list)) list = [];
+
+        const normalized = list.map(normalizePeer).filter(Boolean);
+
+        const seen = new Set();
+        for (const peer of normalized) {
+          upsertPeerMarker(peer);
+          seen.add(peer.id);
+        }
+        prunePeerMarkers(seen);
+      } catch (e) {
+        // Silencioso para não poluir; debug opcional:
+        // console.debug('Peers fetch error:', e);
+      }
+    }
+
     // ====== MODAL ======
     function showModal() { modalWrap.style.display = 'flex'; }
     function hideModal() { modalWrap.style.display = 'none'; }
@@ -295,8 +399,11 @@
     // ====== EVENTOS ======
     startBtn.addEventListener('click', startTrip);
 
-    // opcional: ao sair da página, limpar watcher
-    window.addEventListener('beforeunload', stopWatch);
+    // opcional: ao sair da página, limpar watcher e polling
+    window.addEventListener('beforeunload', () => {
+      stopWatch();
+      if (peersInterval) clearInterval(peersInterval);
+    });
   </script>
 </body>
 </html>
