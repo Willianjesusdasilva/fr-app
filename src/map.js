@@ -3,7 +3,16 @@ import { TILE } from './config.js';
 let map;
 let myMarker;
 let peersLayer;
+
+// chave -> { circle, tooltip }
 const peerMarkers = new Map();
+
+/** Gera uma chave estável por nome + coordenadas (arredondadas) */
+function peerKey(name, lat, lon) {
+  const rLat = Number(lat).toFixed(5);
+  const rLon = Number(lon).toFixed(5);
+  return `${name}::${rLat},${rLon}`;
+}
 
 // ========= MARCADOR DO USUÁRIO =========
 export function ensureMap(lat, lon) {
@@ -23,14 +32,14 @@ export function ensureMap(lat, lon) {
       fillOpacity: 0.9
     }).addTo(map);
 
-    // Label fixa sem seta
+    // Label fixa sem seta (usa seu apelido, se existir)
     L.tooltip({
       permanent: true,
       direction: "center",
       className: "peer-label",
       offset: [0, -15]
     })
-      .setContent("Você")
+      .setContent(window.myNickname || "Você")
       .setLatLng([lat, lon])
       .addTo(map);
 
@@ -50,7 +59,10 @@ export function updateMyMarker(lat, lon, { pan = false } = {}) {
 function upsertPeerMarker(peer) {
   if (!peersLayer) return;
 
-  const existing = peerMarkers.get(peer.id);
+  // Gera chave por nome+coordenada (não precisamos de id)
+  const key = peerKey(peer.name, peer.lat, peer.lon);
+  const existing = peerMarkers.get(key);
+
   if (existing) {
     existing.circle.setLatLng([peer.lat, peer.lon]);
     existing.tooltip.setLatLng([peer.lat, peer.lon]);
@@ -79,15 +91,15 @@ function upsertPeerMarker(peer) {
     .setLatLng([peer.lat, peer.lon])
     .addTo(peersLayer);
 
-  peerMarkers.set(peer.id, { circle, tooltip });
+  peerMarkers.set(key, { circle, tooltip });
 }
 
-function prunePeerMarkers(validIds) {
-  for (const [id, marker] of peerMarkers.entries()) {
-    if (!validIds.has(id)) {
+function prunePeerMarkers(validKeys) {
+  for (const [key, marker] of peerMarkers.entries()) {
+    if (!validKeys.has(key)) {
       peersLayer.removeLayer(marker.circle);
       peersLayer.removeLayer(marker.tooltip);
-      peerMarkers.delete(id);
+      peerMarkers.delete(key);
     }
   }
 }
@@ -95,8 +107,9 @@ function prunePeerMarkers(validIds) {
 export function setPeers(peers) {
   const seen = new Set();
   for (const p of peers) {
+    // espera objetos { name, lat, lon } vindos do loader
     upsertPeerMarker(p);
-    seen.add(p.id);
+    seen.add(peerKey(p.name, p.lat, p.lon));
   }
   prunePeerMarkers(seen);
 }
