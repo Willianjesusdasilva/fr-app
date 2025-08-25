@@ -49,7 +49,7 @@ export async function loadPeers() {
     }
   } catch (e) {
     // silencioso para não travar caso o backend não aceite POST
-    // console.debug('POST self failed:', e);
+    console.log('POST self failed:', e);
   }
 
   // --- busca a lista atualizada ---
