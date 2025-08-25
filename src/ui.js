@@ -57,7 +57,6 @@ export function setStartBusy(busy, textWhenBusy = 'Buscando sinal de GPS...') {
 export function setTripRunning() {
   els.startBtn.disabled = true;
   els.startBtn.classList.add('is-running');
-  //els.startBtn.innerHTML = `<img src="./assets/images/fr.png" alt="Floripa Racing" />`;
   els.startContainer.style.display = 'none';
 }
 

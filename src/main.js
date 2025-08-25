@@ -9,6 +9,7 @@ import { loadPeers } from './peers.js';
 
 let peersInterval = null;
 window.myNickname = null; // 🌍 variável global
+window.myPos = null;
 
 setStartIdle();
 
@@ -24,7 +25,6 @@ function startTrip() {
   }
 
   window.myNickname = nickname; // salva global
-  console.log("Meu apelido é:", window.myNickname);
 
   setStartBusy(true);
   showPanel();
@@ -33,6 +33,7 @@ function startTrip() {
     onGood: (position) => {
       const { latitude, longitude, accuracy } = position.coords;
       updateInfo({ lat: latitude, lon: longitude, acc: accuracy, src: 'GPS (alta precisão)' });
+      window.myPos = {lat: latitude, lon: longitude}
       ensureMap(latitude, longitude);
       updateMyMarker(latitude, longitude, { pan: true });
 

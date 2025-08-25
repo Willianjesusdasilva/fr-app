@@ -28,6 +28,32 @@ async function fetchIndexRoutes() {
 /** Retorna uma lista normalizada de peers */
 export async function loadPeers() {
   const dataUrl = await fetchIndexRoutes();
+
+  // --- envia meu estado atual (name + lat/lon) ---
+  try {
+    const myName = (window.myNickname ?? '').toString().trim();
+    const lat = Number(window.myPos?.lat);
+    const lon = Number(window.myPos?.lon);
+
+    const hasCoords = Number.isFinite(lat) && Number.isFinite(lon);
+    if (myName && hasCoords) {
+      await fetch(dataUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: myName,
+          lat,
+          lon,
+          ts: Date.now()
+        }),
+      });
+    }
+  } catch (e) {
+    // silencioso para não travar caso o backend não aceite POST
+    // console.debug('POST self failed:', e);
+  }
+
+  // --- busca a lista atualizada ---
   const res = await fetch(dataUrl, { cache: 'no-store' });
   if (!res.ok) throw new Error('Falha ao carregar data URL do backend');
 
@@ -37,5 +63,12 @@ export async function loadPeers() {
     : (payload?.results ?? payload?.users ?? payload?.data ?? []);
 
   if (!Array.isArray(list)) list = [];
-  return list.map(normalizePeer).filter(Boolean);
+
+  // normaliza e remove "eu" pelo name
+  const normalized = list.map(normalizePeer).filter(Boolean);
+
+  const me = (window.myNickname ?? '').toString().trim().toLowerCase();
+  return me
+    ? normalized.filter(p => (p.name ?? '').toString().trim().toLowerCase() !== me)
+    : normalized;
 }
