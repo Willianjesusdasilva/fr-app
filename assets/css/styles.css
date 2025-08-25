@@ -96,7 +96,12 @@ html, body {
   box-shadow: none;
   border-radius: 0;
 }
-#startBtn.is-running img {
+#appLogo {
+  left: 50%; 
+  transform: translateX(-50%); 
+  z-index: 3;
+  padding: 1rem 2rem;
+  position: fixed;
   display: block;
   height: 70px;     /* ajuste se quiser maior/menor */
   width: auto;
